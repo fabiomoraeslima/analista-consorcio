@@ -35,7 +35,20 @@ playwright install chromium
   etc.) são enviadas como foto (bolha de imagem, com preview); outros tipos
   são enviados como documento. Pasta vazia = nenhum anexo é enviado.
 
-## Execução
+## Painel web (opcional)
+
+Interface local para editar contatos, mensagem e anexos sem mexer nos arquivos
+na mão, com um botão para disparar o envio e acompanhar o log em tempo real:
+
+```bash
+python -m src.web
+```
+
+Abra `http://127.0.0.1:5000` no navegador. Roda só em `localhost` — não exponha
+essa porta na rede, já que não tem autenticação e o botão "Executar" dispara
+envios reais de WhatsApp.
+
+## Execução (linha de comando)
 
 ```bash
 python -m src.main

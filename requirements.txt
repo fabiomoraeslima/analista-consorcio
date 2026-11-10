@@ -2,3 +2,4 @@ pandas==2.2.3
 pydantic==2.9.2
 playwright==1.48.0
 pytest==8.3.3
+flask==3.0.3

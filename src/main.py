@@ -4,14 +4,10 @@ import sys
 from pathlib import Path
 
 from src.agent import WhatsAppOperator
+from src.config import ATTACHMENTS_DIR, CONTACTS_PATH, LOG_PATH, MESSAGE_PATH
 from src.contacts import deduplicate, load_contacts, load_message
 from src.logs import RunLog, Status
 from src.whatsapp import WhatsAppClient
-
-CONTACTS_PATH = Path("data/contacts.csv")
-MESSAGE_PATH = Path("data/message.txt")
-ATTACHMENTS_DIR = Path("data/attachments")
-LOG_PATH = Path("logs/results.jsonl")
 
 
 def load_attachments() -> list[Path]:

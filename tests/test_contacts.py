@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from src.contacts import Contact, deduplicate, load_contacts, load_message
+from src.contacts import Contact, deduplicate, load_contacts, load_message, save_contacts
 
 
 def test_contact_normalizes_phone_digits():
@@ -57,6 +57,19 @@ def test_load_message_rejects_empty_file(tmp_path):
 
     with pytest.raises(ValueError):
         load_message(path)
+
+
+def test_save_contacts_round_trips_through_load(tmp_path):
+    path = tmp_path / "contacts.csv"
+    contacts = [
+        Contact(name="João Silva", phone="5511999999999"),
+        Contact(name="Maria Souza", phone="5511988888888"),
+    ]
+
+    save_contacts(contacts, path)
+    reloaded = load_contacts(path)
+
+    assert [(c.name, c.phone) for c in reloaded] == [(c.name, c.phone) for c in contacts]
 
 
 def test_deduplicate_keeps_first_occurrence():

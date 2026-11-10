@@ -43,6 +43,12 @@ def load_contacts(csv_path: str | Path) -> list[Contact]:
     return contacts
 
 
+def save_contacts(contacts: list[Contact], csv_path: str | Path) -> None:
+    """Write contacts back to CSV, in the same name,phone format load_contacts reads."""
+    df = pd.DataFrame([{"name": c.name, "phone": c.phone} for c in contacts])
+    df.to_csv(csv_path, index=False)
+
+
 def load_message(message_path: str | Path) -> str:
     """Load the message body to be sent, stripped of trailing whitespace."""
     text = Path(message_path).read_text(encoding="utf-8").strip()
