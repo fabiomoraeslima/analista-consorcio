@@ -21,18 +21,18 @@ CHAT_LOAD_TIMEOUT_MS = 30_000
 QR_CODE_SELECTOR = "canvas"
 LOGGED_IN_SELECTOR = "#pane-side"
 CHAT_PANEL_SELECTOR = "#main"
-MENU_BUTTON_LABEL = "Menu"
-LOGOUT_MENU_ITEM_TEXT = "Log out"
-NEW_CHAT_BUTTON_LABEL = "New chat"
-SEARCH_PLACEHOLDER = "Search name, number or"
+MENU_BUTTON_LABEL = re.compile(r"^(Menu|Mais opções)$")
+LOGOUT_MENU_ITEM_TEXT = re.compile(r"^(Log out|Sair)$")
+NEW_CHAT_BUTTON_LABEL = re.compile(r"New chat|Nova conversa")
+SEARCH_PLACEHOLDER = re.compile(r"Search name, number or|Pesquisar nome, número ou|Pesquisar ou começar")
 SEARCH_RESULT_ITEM_SELECTOR = "div[data-testid='cell-frame-container']"
 MESSAGE_BOX_SELECTOR = "#main footer div[contenteditable='true']"
 SEND_BUTTON_SELECTOR = "#main footer button[aria-label='Enviar'], #main footer button[aria-label='Send']"
 ATTACH_BUTTON_SELECTOR = "#main footer button[aria-label='Anexar'], #main footer button[aria-label='Attach']"
-ATTACH_DOCUMENT_OPTION_TEXT = "Document"
-ATTACH_PHOTOS_OPTION_TEXT = "Photos & videos"
+ATTACH_DOCUMENT_OPTION_TEXT = re.compile(r"^(Document|Documento)$")
+ATTACH_PHOTOS_OPTION_TEXT = re.compile(r"^(Photos & videos|Fotos e vídeos)$")
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic"}
-SEND_ATTACHMENTS_BUTTON_LABEL_PATTERN = re.compile(r"^Send \d+ selected$")
+SEND_ATTACHMENTS_BUTTON_LABEL_PATTERN = re.compile(r"^(Send \d+ selected|Enviar \d+ (item|itens) selecionados?)$")
 CHAT_HEADER_TITLE_SELECTOR = "header span[dir='auto']"
 CONTACT_INFO_BUTTON_SELECTOR = "button[data-testid='conversation-info-header-button']"
 DRAWER_SELECTOR = "div[data-testid='drawer-right']"
@@ -40,9 +40,9 @@ PHONE_NUMBER_PATTERN = re.compile(r"\+[\d\s-]{8,}")
 # Outgoing message status ticks use stable internal icon names in their SVG
 # <title>, unlike the localized aria-label text ("Sent"/"Enviada", etc.).
 SENT_TICK_SELECTOR = (
-    "title:text-is('wds-ic-check'), "
-    "title:text-is('wds-ic-double-check'), "
-    "title:text-is('wds-ic-read')"
+    "#main title:text-is('wds-ic-check'), "
+    "#main title:text-is('wds-ic-double-check'), "
+    "#main title:text-is('wds-ic-read')"
 )
 
 
@@ -98,9 +98,9 @@ class WhatsAppClient:
         """
         assert self._page is not None, "call start() first"
         try:
-            self._page.get_by_label(MENU_BUTTON_LABEL, exact=True).first.click()
-            self._page.get_by_text(LOGOUT_MENU_ITEM_TEXT, exact=True).click()
-            self._page.get_by_role("button", name=LOGOUT_MENU_ITEM_TEXT, exact=True).click()
+            self._page.get_by_label(MENU_BUTTON_LABEL).first.click()
+            self._page.get_by_text(LOGOUT_MENU_ITEM_TEXT).click()
+            self._page.get_by_role("button", name=LOGOUT_MENU_ITEM_TEXT).click()
             self._page.wait_for_selector(QR_CODE_SELECTOR, timeout=CHAT_LOAD_TIMEOUT_MS)
             return True
         except PlaywrightError:
@@ -127,7 +127,7 @@ class WhatsAppClient:
         """
         assert self._page is not None, "call start() first"
         try:
-            self._page.get_by_label(NEW_CHAT_BUTTON_LABEL, exact=False).first.click()
+            self._page.get_by_label(NEW_CHAT_BUTTON_LABEL).first.click()
             search = self._page.get_by_placeholder(SEARCH_PLACEHOLDER).first
             search.click()
             search.type(phone)
@@ -207,7 +207,7 @@ class WhatsAppClient:
 
         self._page.locator(ATTACH_BUTTON_SELECTOR).first.click()
         with self._page.expect_file_chooser() as chooser_info:
-            self._page.get_by_text(option_text, exact=True).click()
+            self._page.get_by_text(option_text).click()
         chooser_info.value.set_files([str(p) for p in paths])
 
         send_button = self._page.get_by_label(SEND_ATTACHMENTS_BUTTON_LABEL_PATTERN)
