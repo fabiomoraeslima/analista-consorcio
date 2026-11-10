@@ -43,7 +43,14 @@ python -m src.main
 
 Na primeira execução, uma janela do Chromium abre o WhatsApp Web — escaneie o
 QR code com o celular. A sessão é mantida em `browser_profile/` (ignorado pelo
-git), então não é necessário escanear novamente nas próximas execuções.
+git), então não é necessário escanear novamente nas próximas execuções — até
+o fim da lista (veja abaixo).
+
+Ao terminar de processar todos os contatos (sem ser interrompido), o script
+faz logout automático do WhatsApp Web, para que a próxima execução possa
+escanear o QR code de **outro número** — útil para rodar listas de números
+diferentes em sequência. Se a execução for interrompida (`Ctrl+C`) ou falhar
+antes de concluir a lista, o logout não acontece e a sessão permanece ativa.
 
 Para cada contato, o script valida o telefone, prepara a mensagem e envia
 direto, sem pedir confirmação. Contatos com status `SENT` ou `SKIPPED` nos

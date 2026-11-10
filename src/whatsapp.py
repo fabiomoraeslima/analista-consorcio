@@ -15,6 +15,8 @@ CHAT_LOAD_TIMEOUT_MS = 30_000
 QR_CODE_SELECTOR = "canvas"
 LOGGED_IN_SELECTOR = "#pane-side"
 CHAT_PANEL_SELECTOR = "#main"
+MENU_BUTTON_LABEL = "Menu"
+LOGOUT_MENU_ITEM_TEXT = "Log out"
 NEW_CHAT_BUTTON_LABEL = "New chat"
 SEARCH_PLACEHOLDER = "Search name, number or"
 SEARCH_RESULT_ITEM_SELECTOR = "div[data-testid='cell-frame-container']"
@@ -81,6 +83,22 @@ class WhatsAppClient:
         # QR code is showing: the user must scan it manually with their phone.
         print("Escaneie o QR code com o WhatsApp do celular para continuar...")
         self._page.wait_for_selector(LOGGED_IN_SELECTOR, timeout=QR_SCAN_TIMEOUT_MS)
+
+    def logout(self) -> bool:
+        """Log out of the linked WhatsApp account via the app menu.
+
+        Lets the next run link a different phone number (new QR scan)
+        without manually clearing browser_profile/.
+        """
+        assert self._page is not None, "call start() first"
+        try:
+            self._page.get_by_label(MENU_BUTTON_LABEL, exact=True).first.click()
+            self._page.get_by_text(LOGOUT_MENU_ITEM_TEXT, exact=True).click()
+            self._page.get_by_role("button", name=LOGOUT_MENU_ITEM_TEXT, exact=True).click()
+            self._page.wait_for_selector(QR_CODE_SELECTOR, timeout=CHAT_LOAD_TIMEOUT_MS)
+            return True
+        except PlaywrightTimeoutError:
+            return False
 
     def close(self) -> None:
         if self._context is not None:

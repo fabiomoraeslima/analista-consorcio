@@ -109,8 +109,14 @@ def run() -> None:
 
             log.record(contact.name, contact.phone, message, Status.SENT)
 
+        print("\nLista concluída. Saindo do WhatsApp Web para liberar um novo número...")
+        if client.logout():
+            print("Logout confirmado.")
+        else:
+            print("Não foi possível confirmar o logout automaticamente; feche a janela e desconecte manualmente se necessário.")
+
     except KeyboardInterrupt:
-        print("\nExecução interrompida pelo usuário.", file=sys.stderr)
+        print("\nExecução interrompida pelo usuário (sessão do WhatsApp mantida).", file=sys.stderr)
     finally:
         client.close()
 
