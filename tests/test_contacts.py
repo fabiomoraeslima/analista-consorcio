@@ -20,14 +20,14 @@ def test_contact_rejects_too_short_phone():
         Contact(name="João Silva", phone="123")
 
 
-def test_load_contacts_reads_xlsx(tmp_path):
-    path = tmp_path / "contacts.xlsx"
+def test_load_contacts_reads_csv(tmp_path):
+    path = tmp_path / "contacts.csv"
     pd.DataFrame(
         [
             {"name": "João Silva", "phone": "5511999999999"},
             {"name": "Maria Souza", "phone": "5511988888888"},
         ]
-    ).to_excel(path, index=False)
+    ).to_csv(path, index=False)
 
     contacts = load_contacts(path)
 
@@ -37,8 +37,8 @@ def test_load_contacts_reads_xlsx(tmp_path):
 
 
 def test_load_contacts_missing_column_raises(tmp_path):
-    path = tmp_path / "contacts.xlsx"
-    pd.DataFrame([{"name": "João Silva"}]).to_excel(path, index=False)
+    path = tmp_path / "contacts.csv"
+    pd.DataFrame([{"name": "João Silva"}]).to_csv(path, index=False)
 
     with pytest.raises(ValueError):
         load_contacts(path)

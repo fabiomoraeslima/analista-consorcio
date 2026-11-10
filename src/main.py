@@ -8,7 +8,7 @@ from src.contacts import deduplicate, load_contacts, load_message
 from src.logs import RunLog, Status
 from src.whatsapp import WhatsAppClient
 
-CONTACTS_PATH = Path("data/contacts.xlsx")
+CONTACTS_PATH = Path("data/contacts.csv")
 MESSAGE_PATH = Path("data/message.txt")
 LOG_PATH = Path("logs/results.jsonl")
 

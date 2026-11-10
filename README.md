@@ -22,7 +22,7 @@ playwright install chromium
 
 ## Arquivos de entrada
 
-- `data/contacts.xlsx`: colunas `name` e `phone` (já vem com um exemplo).
+- `data/contacts.csv`: colunas `name` e `phone` (já vem com um exemplo).
 - `data/message.txt`: texto da mensagem a ser enviada a todos os contatos.
 
 ## Execução

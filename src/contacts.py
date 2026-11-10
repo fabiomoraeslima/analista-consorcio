@@ -28,9 +28,9 @@ class Contact(BaseModel):
         return digits
 
 
-def load_contacts(xlsx_path: str | Path) -> list[Contact]:
-    """Load contacts from an Excel file with 'name' and 'phone' columns."""
-    df = pd.read_excel(xlsx_path, dtype={"phone": str})
+def load_contacts(csv_path: str | Path) -> list[Contact]:
+    """Load contacts from a CSV file with 'name' and 'phone' columns."""
+    df = pd.read_csv(csv_path, dtype={"phone": str})
     df.columns = [str(c).strip().lower() for c in df.columns]
 
     missing = {"name", "phone"} - set(df.columns)
