@@ -5,7 +5,13 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from playwright.sync_api import BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
+from playwright.sync_api import (
+    BrowserContext,
+    Error as PlaywrightError,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+    sync_playwright,
+)
 
 DEFAULT_PROFILE_DIR = Path("browser_profile")
 WHATSAPP_WEB_URL = "https://web.whatsapp.com"
@@ -97,12 +103,18 @@ class WhatsAppClient:
             self._page.get_by_role("button", name=LOGOUT_MENU_ITEM_TEXT, exact=True).click()
             self._page.wait_for_selector(QR_CODE_SELECTOR, timeout=CHAT_LOAD_TIMEOUT_MS)
             return True
-        except PlaywrightTimeoutError:
+        except PlaywrightError:
+            # Covers both a timed-out UI step and the page/context already
+            # having crashed or closed (e.g. after an earlier navigation
+            # error) — either way, logout cannot be confirmed.
             return False
 
     def close(self) -> None:
-        if self._context is not None:
-            self._context.close()
+        try:
+            if self._context is not None:
+                self._context.close()
+        except PlaywrightError:
+            pass
         if self._playwright is not None:
             self._playwright.stop()
 
