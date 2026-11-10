@@ -30,9 +30,10 @@ playwright install chromium
 - `data/contacts.csv`: colunas `name` e `phone` (não versionado — contém dados
   pessoais; copie `data/contacts.example.csv` como ponto de partida).
 - `data/message.txt`: texto da mensagem a ser enviada a todos os contatos.
-- `data/attachments/`: opcional — qualquer arquivo colocado aqui é enviado
-  (como documento, sem recompressão) logo após a mensagem de texto, para
-  todos os contatos. Pasta vazia = nenhum anexo é enviado.
+- `data/attachments/`: opcional — qualquer arquivo colocado aqui é enviado logo
+  após a mensagem de texto, para todos os contatos. Imagens (`.jpg`, `.png`,
+  etc.) são enviadas como foto (bolha de imagem, com preview); outros tipos
+  são enviados como documento. Pasta vazia = nenhum anexo é enviado.
 
 ## Execução
 

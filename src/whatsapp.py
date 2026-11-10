@@ -22,6 +22,8 @@ MESSAGE_BOX_SELECTOR = "#main footer div[contenteditable='true']"
 SEND_BUTTON_SELECTOR = "#main footer button[aria-label='Enviar'], #main footer button[aria-label='Send']"
 ATTACH_BUTTON_SELECTOR = "#main footer button[aria-label='Anexar'], #main footer button[aria-label='Attach']"
 ATTACH_DOCUMENT_OPTION_TEXT = "Document"
+ATTACH_PHOTOS_OPTION_TEXT = "Photos & videos"
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic"}
 SEND_ATTACHMENTS_BUTTON_LABEL_PATTERN = re.compile(r"^Send \d+ selected$")
 CHAT_HEADER_TITLE_SELECTOR = "header span[dir='auto']"
 CONTACT_INFO_BUTTON_SELECTOR = "button[data-testid='conversation-info-header-button']"
@@ -154,17 +156,28 @@ class WhatsAppClient:
         box.press("Backspace")  # remove the trailing extra newline from the loop above
 
     def send_attachments(self, paths: list[Path]) -> bool:
-        """Attach one or more files via the "Document" option and send them together.
+        """Send attachments, grouped by type so each uses the right WhatsApp option.
 
-        "Document" is used regardless of file type (image, PDF, etc.) since it
-        sends the file as-is without WhatsApp's image re-compression.
+        Images go through "Photos & videos" so they render as inline image
+        bubbles (with preview/editing), like a human sending a photo. Everything
+        else goes through "Document", which sends the file as-is without
+        WhatsApp's image re-compression.
         """
+        images = [p for p in paths if p.suffix.lower() in IMAGE_EXTENSIONS]
+        documents = [p for p in paths if p.suffix.lower() not in IMAGE_EXTENSIONS]
+
+        for group, option_text in ((images, ATTACH_PHOTOS_OPTION_TEXT), (documents, ATTACH_DOCUMENT_OPTION_TEXT)):
+            if group and not self._send_attachment_group(group, option_text):
+                return False
+        return True
+
+    def _send_attachment_group(self, paths: list[Path], option_text: str) -> bool:
         assert self._page is not None, "call start() first"
         before = self._page.locator(SENT_TICK_SELECTOR).count()
 
         self._page.locator(ATTACH_BUTTON_SELECTOR).first.click()
         with self._page.expect_file_chooser() as chooser_info:
-            self._page.get_by_text(ATTACH_DOCUMENT_OPTION_TEXT, exact=True).click()
+            self._page.get_by_text(option_text, exact=True).click()
         chooser_info.value.set_files([str(p) for p in paths])
 
         send_button = self._page.get_by_label(SEND_ATTACHMENTS_BUTTON_LABEL_PATTERN)
