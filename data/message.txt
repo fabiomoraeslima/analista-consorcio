@@ -1,0 +1,3 @@
+Olá! Tudo bem?
+Estamos realizando um teste de comunicação
+utilizando nossa nova automação.
