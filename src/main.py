@@ -10,12 +10,20 @@ from src.whatsapp import WhatsAppClient
 
 CONTACTS_PATH = Path("data/contacts.csv")
 MESSAGE_PATH = Path("data/message.txt")
+ATTACHMENTS_DIR = Path("data/attachments")
 LOG_PATH = Path("logs/results.jsonl")
+
+
+def load_attachments() -> list[Path]:
+    if not ATTACHMENTS_DIR.is_dir():
+        return []
+    return sorted(p for p in ATTACHMENTS_DIR.iterdir() if p.is_file() and p.name != ".gitkeep")
 
 
 def run() -> None:
     contacts = load_contacts(CONTACTS_PATH)
     message = load_message(MESSAGE_PATH)
+    attachments = load_attachments()
     contacts, duplicates = deduplicate(contacts)
 
     log = RunLog(LOG_PATH)
@@ -26,6 +34,8 @@ def run() -> None:
 
     operator = WhatsAppOperator()
     client = WhatsAppClient()
+    if attachments:
+        print(f"Anexos encontrados: {[p.name for p in attachments]}")
     print("Abrindo WhatsApp Web...")
     client.start()
     print("Login confirmado. Iniciando processamento dos contatos.")
@@ -72,12 +82,32 @@ def run() -> None:
             log.record(contact.name, contact.phone, message, Status.AWAITING_APPROVAL)
 
             sent = client.send_message()
-            if sent:
-                print("  -> mensagem enviada.")
-                log.record(contact.name, contact.phone, message, Status.SENT)
-            else:
-                print("  -> timeout esperando confirmação de envio.")
+            if not sent:
+                print("  -> timeout esperando confirmação de envio da mensagem.")
                 log.record(contact.name, contact.phone, message, Status.FAILED, reason="send confirmation timed out")
+                continue
+
+            print("  -> mensagem enviada.")
+
+            if attachments:
+                try:
+                    attachments_sent = client.send_attachments(attachments)
+                except Exception as exc:
+                    print(f"  -> falha ao enviar anexos: {exc}")
+                    log.record(contact.name, contact.phone, message, Status.FAILED, reason=f"attachment send failed: {exc}")
+                    continue
+
+                if not attachments_sent:
+                    print("  -> timeout esperando confirmação de envio dos anexos.")
+                    log.record(
+                        contact.name, contact.phone, message, Status.FAILED,
+                        reason="attachment send confirmation timed out",
+                    )
+                    continue
+
+                print("  -> anexos enviados.")
+
+            log.record(contact.name, contact.phone, message, Status.SENT)
 
     except KeyboardInterrupt:
         print("\nExecução interrompida pelo usuário.", file=sys.stderr)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -18,6 +18,7 @@ class Status(str, Enum):
 
 
 TERMINAL_STATUSES = {Status.SENT, Status.SKIPPED}
+REPROCESS_COOLDOWN = timedelta(days=30)
 
 
 class LogEntry(BaseModel):
@@ -38,9 +39,15 @@ class RunLog:
         self.path.touch(exist_ok=True)
 
     def already_processed_phones(self) -> set[str]:
+        """Phones with a terminal status (SENT/SKIPPED) within the cooldown window.
+
+        After REPROCESS_COOLDOWN elapses, a contact becomes eligible again
+        automatically, without needing to clear the log.
+        """
+        cutoff = datetime.now(timezone.utc) - REPROCESS_COOLDOWN
         processed: set[str] = set()
         for entry in self.read_all():
-            if entry.status in TERMINAL_STATUSES:
+            if entry.status in TERMINAL_STATUSES and entry.timestamp >= cutoff:
                 processed.add(entry.phone)
         return processed
 

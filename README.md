@@ -30,6 +30,9 @@ playwright install chromium
 - `data/contacts.csv`: colunas `name` e `phone` (não versionado — contém dados
   pessoais; copie `data/contacts.example.csv` como ponto de partida).
 - `data/message.txt`: texto da mensagem a ser enviada a todos os contatos.
+- `data/attachments/`: opcional — qualquer arquivo colocado aqui é enviado
+  (como documento, sem recompressão) logo após a mensagem de texto, para
+  todos os contatos. Pasta vazia = nenhum anexo é enviado.
 
 ## Execução
 
@@ -42,8 +45,16 @@ QR code com o celular. A sessão é mantida em `browser_profile/` (ignorado pelo
 git), então não é necessário escanear novamente nas próximas execuções.
 
 Para cada contato, o script valida o telefone, prepara a mensagem e envia
-direto, sem pedir confirmação. Contatos já processados com sucesso (`SENT`) ou
-pulados (`SKIPPED`) em execuções anteriores não são reprocessados.
+direto, sem pedir confirmação. Contatos com status `SENT` ou `SKIPPED` nos
+últimos 30 dias (`REPROCESS_COOLDOWN` em `src/logs.py`) não são reprocessados;
+depois desse prazo, voltam a ficar elegíveis automaticamente, sem precisar
+mexer no log.
+
+Para forçar um reprocessamento imediato (ex.: novo teste), esvazie o log:
+
+```bash
+> logs/results.jsonl
+```
 
 Para interromper, use `Ctrl+C`: a execução para de forma limpa e o navegador é
 encerrado.
