@@ -28,12 +28,14 @@ class WhatsAppOperator:
     as a warning rather than a block.
     """
 
-    def validate(self, contact: Contact, displayed_phone: str, displayed_name: str | None) -> ValidationResult:
-        phone_matches = contact.phone == displayed_phone
+    def validate(self, contact: Contact, displayed_phone: str | None, displayed_name: str | None) -> ValidationResult:
+        phone_matches = displayed_phone is not None and contact.phone == displayed_phone
 
         name_similarity = None
         warning = None
-        if not phone_matches:
+        if displayed_phone is None:
+            warning = "could not read phone number from WhatsApp contact info panel"
+        elif not phone_matches:
             warning = (
                 f"expected phone {contact.phone} but WhatsApp Web resolved to {displayed_phone}"
             )

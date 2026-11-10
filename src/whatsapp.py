@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -7,21 +9,35 @@ from playwright.sync_api import BrowserContext, Page, TimeoutError as Playwright
 
 DEFAULT_PROFILE_DIR = Path("browser_profile")
 WHATSAPP_WEB_URL = "https://web.whatsapp.com"
-LOGIN_TIMEOUT_MS = 120_000
+QR_SCAN_TIMEOUT_MS = 180_000
 CHAT_LOAD_TIMEOUT_MS = 30_000
 
+QR_CODE_SELECTOR = "canvas"
+LOGGED_IN_SELECTOR = "#pane-side"
 CHAT_PANEL_SELECTOR = "#main"
-INVALID_PHONE_SELECTOR = "div[data-animate-modal-popup='true']"
+NEW_CHAT_BUTTON_LABEL = "New chat"
+SEARCH_PLACEHOLDER = "Search name, number or"
+SEARCH_RESULT_ITEM_SELECTOR = "div[data-testid='cell-frame-container']"
 MESSAGE_BOX_SELECTOR = "#main footer div[contenteditable='true']"
 SEND_BUTTON_SELECTOR = "#main footer button[aria-label='Enviar'], #main footer button[aria-label='Send']"
 CHAT_HEADER_TITLE_SELECTOR = "header span[dir='auto']"
-LAST_MESSAGE_OUT_SELECTOR = "div.message-out"
+CONTACT_INFO_BUTTON_SELECTOR = "button[data-testid='conversation-info-header-button']"
+DRAWER_SELECTOR = "div[data-testid='drawer-right']"
+PHONE_NUMBER_PATTERN = re.compile(r"\+[\d\s-]{8,}")
+# Outgoing message status ticks use stable internal icon names in their SVG
+# <title>, unlike the localized aria-label text ("Sent"/"Enviada", etc.).
+SENT_TICK_SELECTOR = (
+    "title:text-is('wds-ic-check'), "
+    "title:text-is('wds-ic-double-check'), "
+    "title:text-is('wds-ic-read')"
+)
 
 
 @dataclass
 class ChatResult:
     found: bool
     displayed_name: str | None
+    displayed_phone: str | None = None
     error: str | None = None
 
 
@@ -48,8 +64,18 @@ class WhatsAppClient:
         )
         self._page = self._context.new_page()
         self._page.goto(WHATSAPP_WEB_URL)
-        # If this is the first run, the user must scan the QR code manually.
-        self._page.wait_for_selector("div[role='textbox']", timeout=LOGIN_TIMEOUT_MS)
+        self._wait_for_login()
+
+    def _wait_for_login(self) -> None:
+        assert self._page is not None
+        self._page.wait_for_selector(
+            f"{QR_CODE_SELECTOR}, {LOGGED_IN_SELECTOR}", timeout=QR_SCAN_TIMEOUT_MS
+        )
+        if self._page.locator(LOGGED_IN_SELECTOR).count() > 0:
+            return
+        # QR code is showing: the user must scan it manually with their phone.
+        print("Escaneie o QR code com o WhatsApp do celular para continuar...")
+        self._page.wait_for_selector(LOGGED_IN_SELECTOR, timeout=QR_SCAN_TIMEOUT_MS)
 
     def close(self) -> None:
         if self._context is not None:
@@ -58,24 +84,62 @@ class WhatsAppClient:
             self._playwright.stop()
 
     def open_chat(self, phone: str) -> ChatResult:
+        """Open a chat by phone number via the "New chat" search panel.
+
+        WhatsApp Web's /send?phone= deep link hangs indefinitely for
+        automated (Playwright-controlled) browsers, so the chat is found the
+        same way a human would: through the in-app contact search.
+        """
         assert self._page is not None, "call start() first"
-        self._page.goto(f"{WHATSAPP_WEB_URL}/send?phone={phone}")
         try:
-            self._page.wait_for_selector(
-                f"{CHAT_PANEL_SELECTOR}, {INVALID_PHONE_SELECTOR}", timeout=CHAT_LOAD_TIMEOUT_MS
-            )
+            self._page.get_by_label(NEW_CHAT_BUTTON_LABEL, exact=False).first.click()
+            search = self._page.get_by_placeholder(SEARCH_PLACEHOLDER).first
+            search.click()
+            search.type(phone)
+            self._page.wait_for_timeout(1500)
+
+            results = self._page.locator(SEARCH_RESULT_ITEM_SELECTOR)
+            if results.count() == 0:
+                self._page.keyboard.press("Escape")
+                return ChatResult(found=False, displayed_name=None, error="invalid or unregistered phone number")
+
+            results.first.click()
+            self._page.wait_for_selector(CHAT_PANEL_SELECTOR, timeout=CHAT_LOAD_TIMEOUT_MS)
         except PlaywrightTimeoutError:
             return ChatResult(found=False, displayed_name=None, error="timed out opening chat")
-
-        if self._page.locator(INVALID_PHONE_SELECTOR).count() > 0:
-            return ChatResult(found=False, displayed_name=None, error="invalid or unregistered phone number")
 
         displayed_name = None
         header_locator = self._page.locator(CHAT_HEADER_TITLE_SELECTOR).first
         if header_locator.count() > 0:
             displayed_name = header_locator.inner_text().strip() or None
 
-        return ChatResult(found=True, displayed_name=displayed_name)
+        displayed_phone = self._read_contact_phone()
+
+        return ChatResult(found=True, displayed_name=displayed_name, displayed_phone=displayed_phone)
+
+    def _read_contact_phone(self) -> str | None:
+        """Open the contact info drawer and extract the phone number it shows.
+
+        This is the authoritative, deterministic check that the opened chat
+        really belongs to the expected phone number (search results can match
+        by name too, not just number).
+        """
+        assert self._page is not None
+        try:
+            self._page.locator(CONTACT_INFO_BUTTON_SELECTOR).click(timeout=CHAT_LOAD_TIMEOUT_MS)
+            drawer = self._page.locator(DRAWER_SELECTOR)
+            drawer.wait_for(state="visible", timeout=CHAT_LOAD_TIMEOUT_MS)
+            texts = drawer.locator("span[dir='auto']").all_inner_texts()
+            phone = None
+            for text in texts:
+                match = PHONE_NUMBER_PATTERN.search(text)
+                if match:
+                    phone = re.sub(r"\D", "", match.group())
+                    break
+            self._page.keyboard.press("Escape")
+            return phone
+        except PlaywrightTimeoutError:
+            return None
 
     def type_message(self, text: str) -> None:
         assert self._page is not None, "call start() first"
@@ -87,14 +151,20 @@ class WhatsAppClient:
         box.press("Backspace")  # remove the trailing extra newline from the loop above
 
     def send_message(self) -> bool:
+        """Click send and poll for a new outgoing bubble.
+
+        WhatsApp Web's CSP blocks 'unsafe-eval', so Playwright's
+        wait_for_function (which injects a JS string) cannot be used here;
+        polling via locator.count() goes through Playwright's own protocol
+        instead of page-side eval.
+        """
         assert self._page is not None, "call start() first"
-        before = self._page.locator(LAST_MESSAGE_OUT_SELECTOR).count()
+        before = self._page.locator(SENT_TICK_SELECTOR).count()
         self._page.locator(SEND_BUTTON_SELECTOR).first.click()
-        try:
-            self._page.wait_for_function(
-                f"document.querySelectorAll('{LAST_MESSAGE_OUT_SELECTOR}').length > {before}",
-                timeout=CHAT_LOAD_TIMEOUT_MS,
-            )
-            return True
-        except PlaywrightTimeoutError:
-            return False
+
+        deadline = time.monotonic() + (CHAT_LOAD_TIMEOUT_MS / 1000)
+        while time.monotonic() < deadline:
+            if self._page.locator(SENT_TICK_SELECTOR).count() > before:
+                return True
+            self._page.wait_for_timeout(300)
+        return False

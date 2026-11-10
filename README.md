@@ -1,15 +1,20 @@
 # WhatsFlow AI — PoC
 
 PoC de terminal que lê uma lista de contatos e uma mensagem, abre cada conversa
-no WhatsApp Web, valida o destinatário pelo telefone e só envia após aprovação
-humana explícita por contato.
+no WhatsApp Web, valida o destinatário pelo telefone e envia automaticamente,
+sem pedir aprovação por contato.
+
+## Atenção
+
+A aprovação manual por mensagem foi removida a pedido do usuário. Isso sai do
+escopo original do spec (que previa aprovação humana antes de cada envio) e
+aumenta o risco de a conta ser bloqueada pelo WhatsApp por automação sem
+supervisão. Use com poucos contatos e por sua conta e risco.
 
 ## O que isso NÃO faz
 
-- Não envia mensagens em massa nem contorna controles do WhatsApp.
 - Não usa IA para validar o destinatário — a comparação é por telefone (string
   exata), que é determinística; ver `src/agent.py`.
-- Não envia nada sem uma confirmação manual (`s`/`N`) no terminal, por contato.
 
 ## Instalação
 
@@ -22,7 +27,8 @@ playwright install chromium
 
 ## Arquivos de entrada
 
-- `data/contacts.csv`: colunas `name` e `phone` (já vem com um exemplo).
+- `data/contacts.csv`: colunas `name` e `phone` (não versionado — contém dados
+  pessoais; copie `data/contacts.example.csv` como ponto de partida).
 - `data/message.txt`: texto da mensagem a ser enviada a todos os contatos.
 
 ## Execução
@@ -35,8 +41,8 @@ Na primeira execução, uma janela do Chromium abre o WhatsApp Web — escaneie 
 QR code com o celular. A sessão é mantida em `browser_profile/` (ignorado pelo
 git), então não é necessário escanear novamente nas próximas execuções.
 
-Para cada contato, o terminal mostra o nome, telefone e mensagem, e pede
-confirmação antes de enviar. Contatos já processados com sucesso (`SENT`) ou
+Para cada contato, o script valida o telefone, prepara a mensagem e envia
+direto, sem pedir confirmação. Contatos já processados com sucesso (`SENT`) ou
 pulados (`SKIPPED`) em execuções anteriores não são reprocessados.
 
 Para interromper, use `Ctrl+C`: a execução para de forma limpa e o navegador é

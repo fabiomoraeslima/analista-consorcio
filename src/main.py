@@ -13,14 +13,6 @@ MESSAGE_PATH = Path("data/message.txt")
 LOG_PATH = Path("logs/results.jsonl")
 
 
-def ask_approval(name: str, phone: str, message: str) -> bool:
-    print("\n--- Aprovação necessária ---")
-    print(f"Contato: {name} ({phone})")
-    print(f"Mensagem:\n{message}")
-    answer = input("Enviar esta mensagem? [s/N]: ").strip().lower()
-    return answer in {"s", "sim", "y", "yes"}
-
-
 def run() -> None:
     contacts = load_contacts(CONTACTS_PATH)
     message = load_message(MESSAGE_PATH)
@@ -34,11 +26,16 @@ def run() -> None:
 
     operator = WhatsAppOperator()
     client = WhatsAppClient()
+    print("Abrindo WhatsApp Web...")
     client.start()
+    print("Login confirmado. Iniciando processamento dos contatos.")
 
     try:
         for contact in contacts:
+            print(f"\n[{contact.name} / {contact.phone}] processando...")
+
             if contact.phone in already_processed:
+                print("  -> já processado anteriormente, pulando.")
                 log.record(contact.name, contact.phone, message, Status.SKIPPED, reason="already processed")
                 continue
 
@@ -47,36 +44,39 @@ def run() -> None:
             try:
                 chat = client.open_chat(contact.phone)
             except Exception as exc:  # recoverable per-contact failure
+                print(f"  -> falha ao abrir conversa: {exc}")
                 log.record(contact.name, contact.phone, message, Status.FAILED, reason=str(exc))
                 continue
 
             if not chat.found:
+                print(f"  -> contato não encontrado: {chat.error}")
                 log.record(contact.name, contact.phone, message, Status.FAILED, reason=chat.error)
                 continue
 
-            validation = operator.validate(contact, contact.phone, chat.displayed_name)
+            validation = operator.validate(contact, chat.displayed_phone, chat.displayed_name)
             if not validation.ok:
+                print(f"  -> validação falhou: {validation.warning}")
                 log.record(contact.name, contact.phone, message, Status.FAILED, reason=validation.warning)
                 continue
 
+            print(f"  -> conversa encontrada (nome exibido: {chat.displayed_name!r}).")
             log.record(contact.name, contact.phone, message, Status.CONTACT_FOUND, reason=validation.warning)
 
             try:
                 client.type_message(message)
             except Exception as exc:
+                print(f"  -> falha ao digitar mensagem: {exc}")
                 log.record(contact.name, contact.phone, message, Status.FAILED, reason=str(exc))
                 continue
 
             log.record(contact.name, contact.phone, message, Status.AWAITING_APPROVAL)
 
-            if not ask_approval(contact.name, contact.phone, message):
-                log.record(contact.name, contact.phone, message, Status.SKIPPED, reason="not approved by operator")
-                continue
-
             sent = client.send_message()
             if sent:
+                print("  -> mensagem enviada.")
                 log.record(contact.name, contact.phone, message, Status.SENT)
             else:
+                print("  -> timeout esperando confirmação de envio.")
                 log.record(contact.name, contact.phone, message, Status.FAILED, reason="send confirmation timed out")
 
     except KeyboardInterrupt:

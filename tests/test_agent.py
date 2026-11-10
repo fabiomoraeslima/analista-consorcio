@@ -41,3 +41,13 @@ def test_validate_no_warning_when_whatsapp_has_no_display_name():
 
     assert result.ok
     assert result.warning is None
+
+
+def test_validate_rejects_when_phone_could_not_be_read():
+    operator = WhatsAppOperator()
+    contact = Contact(name="João Silva", phone="5511999999999")
+
+    result = operator.validate(contact, displayed_phone=None, displayed_name="João Silva")
+
+    assert not result.ok
+    assert "could not read" in result.warning
